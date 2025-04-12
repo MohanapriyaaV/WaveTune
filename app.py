@@ -1,79 +1,60 @@
-import streamlit as st
 import cv2
-import tempfile
-import os
 import numpy as np
-from PIL import Image
-from hand_utils import detect_hands_in_image, detect_hands_in_video
+import pyautogui
+import pygame
+import threading
 
-# Streamlit page configuration
-st.set_page_config(page_title="Gesture Control Media Player", layout="wide")
+# Initialize pygame for media controls
+pygame.mixer.init()
+pygame.mixer.music.load("D:\\SEM - 6\\Vista Engg Hackathon\\gesture_media_player\\WaveTune\\song.mp3")  # Replace with your media file path
+pygame.mixer.music.play()
 
-# Custom styling
-st.markdown("""
-    <style>
-        .main {background-color: #fafafa;}
-        h1, h2, h3 {color: #303030;}
-        .stButton>button {
-            border-radius: 8px;
-            background-color: #4CAF50;
-            color: white;
-            padding: 0.5em 1em;
-        }
-    </style>
-""", unsafe_allow_html=True)
+# Gesture control function
+def gesture_control(gesture):
+    if gesture == "raise_hand":
+        pyautogui.press('playpause')  # Play/Pause media
+    elif gesture == "left_swipe":
+        pyautogui.press('nexttrack')  # Next track
+    elif gesture == "right_swipe":
+        pyautogui.press('prevtrack')  # Previous track
 
-# Page title
-st.title("🖐️ Gesture Control Media Player")
-st.markdown("Use your hands to control media using image, video, or webcam input. Built with MediaPipe + Streamlit.")
+# Initialize the webcam
+cap = cv2.VideoCapture(0)
+cap.set(3, 640)
+cap.set(4, 480)
 
-# Sidebar options
-option = st.sidebar.radio(
-    "Choose Input Type",
-    ["📷 Image", "📁 Folder of Images", "🎥 Video", "🎦 Webcam"],
-)
-st.sidebar.markdown("Made with ❤️ by Your Name")
+# Function for handling webcam feed and gesture detection
+def capture_webcam():
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
 
-# ========== 📷 IMAGE UPLOAD ==========
-if option == "📷 Image":
-    uploaded_img = st.file_uploader("Upload an image", type=["png", "jpg", "jpeg"])
-    if uploaded_img is not None:
-        file_bytes = uploaded_img.read()
-        np_img = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
-        result_img, landmarks = detect_hands_in_image(np_img)
-        st.image(result_img, channels="BGR", caption="Detected Hand Landmarks")
-        if landmarks:
-            st.success("Hand landmarks detected!")
-        else:
-            st.warning("No hands detected.")
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.GaussianBlur(gray, (15, 15), 0)
+        edges = cv2.Canny(blurred, 50, 150)
+        contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-# ========== 📁 FOLDER OF IMAGES ==========
-elif option == "📁 Folder of Images":
-    uploaded_files = st.file_uploader("Upload multiple images", type=["png", "jpg", "jpeg"], accept_multiple_files=True)
-    if uploaded_files:
-        for file in uploaded_files:
-            st.markdown(f"**{file.name}**")
-            file_bytes = file.read()
-            np_img = cv2.imdecode(np.frombuffer(file_bytes, np.uint8), cv2.IMREAD_COLOR)
-            result_img, landmarks = detect_hands_in_image(np_img)
-            st.image(result_img, channels="BGR", caption="Detected Hand Landmarks")
+        for contour in contours:
+            if cv2.contourArea(contour) > 500:
+                hull = cv2.convexHull(contour)
+                cv2.drawContours(frame, [hull], -1, (0, 255, 0), 3)
 
-# ========== 🎥 VIDEO UPLOAD ==========
-elif option == "🎥 Video":
-    video_file = st.file_uploader("Upload a video file", type=["mp4", "mov", "avi"])
-    if video_file is not None:
-        tfile = tempfile.NamedTemporaryFile(delete=False)
-        tfile.write(video_file.read())
-        tfile.close()
-        stframe = st.empty()
-        st.info("Processing video... please wait")
-        for frame in detect_hands_in_video(tfile.name):
-            stframe.image(frame, channels="BGR")
+                # Detect gesture based on contour characteristics (placeholder logic)
+                gesture_control("raise_hand")
 
-# ========== 🎦 WEBCAM ==========
-elif option == "🎦 Webcam":
-    st.warning("Click below to start webcam detection. (Only works if Streamlit runs locally)")
-    if st.button("Start Webcam"):
-        stframe = st.empty()
-        for frame in detect_hands_in_video(None, is_webcam=True):
-            stframe.image(frame, channels="BGR")
+        cv2.imshow("Gesture Control Media Player", frame)
+
+        # Break if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+# Start the webcam feed in a separate thread
+thread = threading.Thread(target=capture_webcam)
+thread.start()
+
+# Wait for the thread to finish
+thread.join()
