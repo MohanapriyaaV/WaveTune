@@ -1,13 +1,12 @@
-import pyautogui  # To simulate key presses for media control
+# Dummy gesture control function
+def gesture_to_action(gesture, player):
+    print("Gesture Detected:", gesture)
 
-# Define a simple gesture handler
-def gesture_control(gesture):
-    if gesture == "raise_hand":
-        pyautogui.press('playpause')  # Play/Pause media
-    elif gesture == "left_swipe":
-        pyautogui.press('nexttrack')  # Next track
-    elif gesture == "right_swipe":
-        pyautogui.press('prevtrack')  # Previous track
-
-# Dummy gesture detection (You can replace with real gestures)
-gesture_control("raise_hand")  # Example of playing/pausing media
+    if gesture == "play":
+        player.play()
+    elif gesture == "pause":
+        player.pause()
+    elif gesture == "unpause":
+        player.unpause()
+    elif gesture == "stop":
+        player.stop()

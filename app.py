@@ -1,60 +1,48 @@
 import cv2
 import numpy as np
-import pyautogui
-import pygame
-import threading
+from media_player import MediaPlayer
+from gesture_control import gesture_to_action
 
-# Initialize pygame for media controls
-pygame.mixer.init()
-pygame.mixer.music.load("D:\\SEM - 6\\Vista Engg Hackathon\\gesture_media_player\\WaveTune\\song.mp3")  # Replace with your media file path
-pygame.mixer.music.play()
+# Dummy prediction function (replace with real model later)
+def predict_gesture(frame):
+    # For demo: count white pixels and use thresholds
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    _, thresh = cv2.threshold(gray, 100, 255, cv2.THRESH_BINARY)
+    white_pixels = cv2.countNonZero(thresh)
 
-# Gesture control function
-def gesture_control(gesture):
-    if gesture == "raise_hand":
-        pyautogui.press('playpause')  # Play/Pause media
-    elif gesture == "left_swipe":
-        pyautogui.press('nexttrack')  # Next track
-    elif gesture == "right_swipe":
-        pyautogui.press('prevtrack')  # Previous track
+    if white_pixels > 50000:
+        return "play"
+    elif 20000 < white_pixels <= 50000:
+        return "pause"
+    else:
+        return "none"
 
-# Initialize the webcam
+# Init Media Player
+media_path = "D:\\SEM - 6\\Vista Engg Hackathon\\gesture_media_player\\WaveTune\\song.mp3"  # Keep it in the same folder for now
+player = MediaPlayer(media_path)
+
+# Init webcam
 cap = cv2.VideoCapture(0)
-cap.set(3, 640)
-cap.set(4, 480)
 
-# Function for handling webcam feed and gesture detection
-def capture_webcam():
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+print("[INFO] Press 'q' to exit the app")
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (15, 15), 0)
-        edges = cv2.Canny(blurred, 50, 150)
-        contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
 
-        for contour in contours:
-            if cv2.contourArea(contour) > 500:
-                hull = cv2.convexHull(contour)
-                cv2.drawContours(frame, [hull], -1, (0, 255, 0), 3)
+    gesture = predict_gesture(frame)
 
-                # Detect gesture based on contour characteristics (placeholder logic)
-                gesture_control("raise_hand")
+    if gesture != "none":
+        gesture_to_action(gesture, player)
 
-        cv2.imshow("Gesture Control Media Player", frame)
+    cv2.putText(frame, f"Gesture: {gesture}", (10, 40),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.imshow("Gesture Control", frame)
 
-        # Break if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-    cap.release()
-    cv2.destroyAllWindows()
-
-# Start the webcam feed in a separate thread
-thread = threading.Thread(target=capture_webcam)
-thread.start()
-
-# Wait for the thread to finish
-thread.join()
+cap.release()
+cv2.destroyAllWindows()
+player.stop()
